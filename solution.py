@@ -92,8 +92,8 @@ def smtp_client(port=1025, mailserver='127.0.0.1'):
             raise Exception("Mail server did not reply to QUIT with 221 response")
 
     except Exception as e:
-        print("Message Transmission stopped due to exception")
-        print(e.args)
+        #print("Message Transmission stopped due to exception")
+        #print(e.args)
 
 if __name__ == '__main__':
     smtp_client(1025, '127.0.0.1')
