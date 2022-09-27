@@ -1,56 +1,99 @@
-# import socket module
 from socket import *
-# In order to terminate the program
-import sys
 
 
-def webServer(port=13331):
-    serverSocket = socket(AF_INET, SOCK_STREAM)
+def smtp_client(port=1025, mailserver='127.0.0.1'):
+    msg = {}
+    msg[0] = "From: Alice <alice@xxx.org>"
+    msg[1] = "\r\n To: Bob <bob@zzz.org>"
+    msg[2] = "\r\n Date: Tue, 27 Sep 2022 18:02:43 -0500"
+    msg[3] = "\r\n Subject: Hello World"
+    msg[4] = "\r\n"
+    msg[5] = "\r\n Dear Bob, "
+    msg[6] = "\r\n    Hope all is well!"
+    msg[7] = "\r\n         Regards, "
+    msg[8] = "\r\n          Alice"
+    endmsg = "\r\n.\r\n"
 
-    # Prepare a server socket
-    serverSocket.bind(("", port))
+    # Choose a mail server (e.g. Google mail server) if you want to verify the script beyond GradeScope
+    # mailserver=some.other.server.com
+    try:
+        # Create socket called clientSocket and establish a TCP connection with mailserver and port
+        clientSocket = socket(AF_INET, SOCK_STREAM)
+        clientSocket.connect(mailserver, port)
+        recv = clientSocket.recv(1024).decode()
 
-    # Fill in start
-    serverSocket.listen()
-    # Fill in end
+        # response from mail server to our connection request should be 220
+        print(recv)
+        if recv[:3] != '220':
+            print('220 reply not received from server on socket open.')
+            raise Exception("Mail Server Not Available")
 
-    while True:
-        # Establish the connection
+        # Send HELO command and print server response.
+        heloCommand = 'HELO mail.xxx.org\r\n'
+        clientSocket.send(heloCommand.encode())
+        recv1 = clientSocket.recv(1024).decode()
 
-        print('Ready to serve...')
-        connectionSocket, addr = serverSocket.accept()  # Fill in start -are you accepting connections?     #Fill in end
+        print(recv1)
+        if recv1[:3] != '250':
+            print('250 reply not received from server.')
+            raise Exception("Mail server did not reply to HELO with 250 response")
 
-        try:
-            message = connectionSocket.recv(1024)
-            #print(message)
-            filename = message.split()[1]
-            #print(filename[1:])
+        # Send MAIL FROM command and handle server response.
+        mailFrom = 'MAIL FROM: <alice@xxx.org>\r\n'
+        clientSocket.send(mailFrom.encode())
+        recv1 = clientSocket.recv(1024).decode()
 
-            # opens the client requested file.
-            # Plenty of guidance online on how to open and read a file in python. How should you read it though if you plan on sending it through a socket?
-            f = open(filename[1:].decode())
-            outputfile = f.read()
-            f.close()
+        print(recv1)
+        if recv1[:3] != '250':
+            print('250 reply not received from server.')
+            raise Exception("Mail server did not reply to MAIL FROM with 250 response")
 
-            outputdata = "HTTP/1.1 200 OK\r\n" \
-                         + "Content-Type: text/html; charset=UTF-8\r\n\n" \
-                         + outputfile
+        # Send RCPT TO command and handle server response.
+        rcptTo = 'RCPT TO: <bob@zzz.org>\r\n'
+        clientSocket.send(rcptTo.encode())
+        recv1 = clientSocket.recv(1024).decode()
 
-            # for i in f:  # for line in file
+        print(recv1)
+        if recv1[:3] != '250':
+            print('250 reply not received from server.')
+            raise Exception("Mail server did not reply to RCPT TO with 250 response")
 
-        except Exception as e:
-            outputdata = "HTTP/1.1 404 Not Found\r\n"
-            #print(e)
+        # Send DATA command and handle server response.
+        dataMsg = 'DATA\r\n'
+        clientSocket.send(dataMsg.encode())
+        recv1 = clientSocket.recv(1024).decode()
 
-        finally:
-            #print(outputdata)
-            connectionSocket.send(outputdata.encode(encoding="UTF-8"))
-            connectionSocket.close()  # closing the connection socket
+        print(recv1)
+        if recv1[:3] != '354':
+            print('354 reply not received from server.')
+            raise Exception("Mail server did not reply to DATA with 354 response")
 
-    # Close client socket
-    serverSocket.close()
-    sys.exit()  # Terminate the program after sending the corresponding data
+        # Send main message body. Loop through each line in the msg array
+        for i in msg:
+            clientSocket.send(msg[i].encode())
 
+        # Message ends with a single period, send message end and handle server response.
+        clientSocket.send(endmsg.encode())
+        recv1 = clientSocket.recv(1024).decode()
 
-if __name__ == "__main__":
-    webServer(13331)
+        print(recv1)
+        if recv1[:3] != '250':
+            print('250 reply not received from server.')
+            raise Exception("Mail server did not reply to end of message body with 250 response")
+
+        # Send QUIT command and handle server response.
+        quitMsg = 'QUIT\r\n'
+        clientSocket.send(quitMsg.encode())
+        recv1 = clientSocket.recv(1024).decode()
+
+        print(recv1)
+        if recv1[:3] != '221':
+            print('221 reply not received from server.')
+            raise Exception("Mail server did not reply to QUIT with 221 response")
+
+    except Exception:
+        print("Message Transmission stopped due to exception")
+        print(Exception)
+
+if __name__ == '__main__':
+    smtp_client(1025, '127.0.0.1')
