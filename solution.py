@@ -116,16 +116,16 @@ def get_route(hostname):
             else:
                 #Fill in start
                 #Fetch the icmp type from the IP packet
-                TTL = struct.unpack_from("B", recvPacket, offset=8)
-                IP_numeric = struct.unpack_from("L", recvPacket, offset=12)
+                #TTL = struct.unpack_from("B", recvPacket, offset=8)
+                #IP_numeric = struct.unpack_from("L", recvPacket, offset=12)
                 bytes = struct.calcsize("L")
-                IP_numeric = struct.unpack("L", recvPacket[12:12 + bytes])[0]
+                #IP_numeric = struct.unpack("L", recvPacket[12:12 + bytes])[0]
                 #print(recvPacket>>8)
 
-                IP_bytes = int.to_bytes(IP_numeric,4,"little")
+                #IP_bytes = int.to_bytes(IP_numeric,4,"little")
                 #print(len(IP_bytes))
-                IPAddr = inet_ntoa(IP_bytes)
-
+                #IPAddr = inet_ntoa(IP_bytes)
+                IPAddr = inet_ntoa(recvPacket[12:12 + bytes])
                 #         ipBytes = len(recPacket)
                 #         # Fetch the ICMP header from the IP packet
                 icmpHeader = struct.unpack_from("bbHHh", recvPacket, offset=20)
