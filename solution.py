@@ -8,7 +8,14 @@ import binascii
 import pandas as pd
 
 ICMP_ECHO_REQUEST = 8
+MAX_HOPS = 30
+TIMEOUT = 2.0
+TRIES = 1
+pd.options.display.width = 0
 
+# The packet that we shall send to each router along the path is the ICMP echo
+# request packet, which is exactly what we had used in the ICMP ping exercise.
+# We shall use the same packet that we built in the Ping exercise
 
 def checksum(string):
     csum = 0
@@ -33,59 +40,14 @@ def checksum(string):
     return answer
 
 
-def receiveOnePing(mySocket, ID, timeout, destAddr):
-    timeLeft = timeout
-
-    while 1:
-        startedSelect = time.time()
-        whatReady = select.select([mySocket], [], [], timeLeft)
-        howLongInSelect = (time.time() - startedSelect)
-        if whatReady[0] == []:  # Timeout
-            return "Request timed out.", [0,0,0]
-
-        timeReceived = time.time()
-        recPacket, addr = mySocket.recvfrom(1024)
-
-        # Fill in start
-        #print("Packet Len: "+ str(len(recPacket)))
-        #print(recPacket)
-        #print(addr)
-        TTL = struct.unpack_from("B", recPacket, offset=8)
-        ipBytes = len(recPacket)
-        # Fetch the ICMP header from the IP packet
-        icmpHeader = struct.unpack_from("bbHHh", recPacket, offset=20)
-        #b = char -> int Type, Code
-        #H = unsigned short -> int Checksum, ID
-        #h = short -> int Sequence
-        icmpType = icmpHeader[0]
-        icmpCode = icmpHeader[1]
-        icmpChecksum = icmpHeader[2]
-        icmpID = icmpHeader[3]
-        icmpSeq = icmpHeader[4]
-        #print("IP TTL: " + str(TTL[0]))
-        #print("IP Bytes: " + str(ipBytes))
-        #print("ICMP Type: " + str(icmpType))
-        #print("ICMP Code: " + str(icmpCode))
-        #print("ICMP Checksum: " + str(icmpChecksum))
-        #print("ICMP ID: " + str(icmpID))
-        #print("ICMP Seq: " + str(icmpSeq))
-        #print("RTT: " + str(round(timeReceived - startedSelect, 6)))
-        if icmpType == 0 & icmpCode == 0: #& icmpID == ID:
-            statistics = [ipBytes, round((timeReceived - startedSelect) * 1000, 6), TTL[0]]
-            return icmpHeader, statistics
-        # Fill in end
-        timeLeft = timeLeft - howLongInSelect
-        if timeLeft <= 0:
-            return "Request timed out.", [0,0,0]
-
-
-def sendOnePing(mySocket, destAddr, ID):
+def build_packet():
     # Header is type (8), code (8), checksum (16), id (16), sequence (16)
 
     myChecksum = 0
+    id = os.getpid() & 0xFFFF  # Return the current process i
     # Make a dummy header with a 0 checksum
     # struct -- Interpret strings as packed binary data
-    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
+    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, id, 1)
     data = struct.pack("d", time.time())
     # Calculate the checksum on the data and the dummy header.
     myChecksum = checksum(header + data)
@@ -98,81 +60,143 @@ def sendOnePing(mySocket, destAddr, ID):
     else:
         myChecksum = htons(myChecksum)
 
-    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
+    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, id, 1)
     packet = header + data
 
-    mySocket.sendto(packet, (destAddr, 1))  # AF_INET address must be tuple, not str
+    return packet
 
-    # Both LISTS and TUPLES consist of a number of objects
-    # which can be referenced by their position number within the object.
+def get_route(hostname):
+    timeLeft = TIMEOUT
+    df = pd.DataFrame(columns=['Hop Count', 'Try', 'IP', 'Hostname', 'Response Code'])
+    #print(df)
+    for ttl in range(1,MAX_HOPS):
+        for tries in range(TRIES):
+            #print(hostname)
+            destAddr = gethostbyname(hostname)
 
+            #Fill in start
+            icmp = getprotobyname("icmp")
+            mySocket = socket(AF_INET, SOCK_RAW, icmp)
+            #Fill in end
 
-def doOnePing(destAddr, timeout):
-    icmp = getprotobyname("icmp")
+            mySocket.setsockopt(IPPROTO_IP, IP_TTL, struct.pack('I', ttl))
+            mySocket.settimeout(TIMEOUT)
+            try:
+                d = build_packet()
+                mySocket.sendto(d, (hostname, 0))
+                t= time.time()
+                startedSelect = time.time()
+                whatReady = select.select([mySocket], [], [], timeLeft)
+                howLongInSelect = (time.time() - startedSelect)
+                if whatReady[0] == []: # Timeout
+                    #Fill in start
 
-    # SOCK_RAW is a powerful socket type. For more details:   https://sock-raw.org/papers/sock_raw
-    mySocket = socket(AF_INET, SOCK_RAW, icmp)
+                    #append response to your dataframe including hop #, try #, and "Timeout" responses as required by the acceptance criteria
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': 'timeout', 'Hostname': 'timeout', 'Response Code': 'timeout'}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    print(df)
 
-    myID = os.getpid() & 0xFFFF  # Return the current process i
-    sendOnePing(mySocket, destAddr, myID)
-    delay, statistics = receiveOnePing(mySocket, myID, timeout, destAddr)
-    mySocket.close()
-    return delay, statistics
+                    #Fill in end
+                recvPacket, addr = mySocket.recvfrom(1024)
+                timeReceived = time.time()
+                timeLeft = timeLeft - howLongInSelect
+                if timeLeft <= 0:
+                    #Fill in start
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': 'timeout', 'Hostname': 'timeout', 'Response Code': 'timeout'}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    #print (df)
 
+                    #Fill in end
+            except Exception as e:
+                #print (e) # uncomment to view exceptions
+                continue
 
-def ping(host, timeout=1):
-    # timeout=1 means: If one second goes by without a reply from the server,
-    # the client assumes that either the client's ping or the server's pong is lost
-    dest = gethostbyname(host)
-    print("\nPinging " + dest + " using Python:")
-    print("")
+            else:
+                #Fill in start
+                #Fetch the icmp type from the IP packet
+                TTL = struct.unpack_from("B", recvPacket, offset=8)
+                IP_numeric = struct.unpack_from("L", recvPacket, offset=12)
+                #print(recvPacket>>8)
 
-    # This creates an empty dataframe with 3 headers with the column specific names declared
-    response = pd.DataFrame(columns=['bytes', 'rtt', 'ttl'])
+                IP_bytes = int.to_bytes(IP_numeric[0],4,"little")
+                #print(len(IP_bytes))
+                IPAddr = inet_ntoa(IP_bytes)
 
-    # Send ping requests to a server separated by approximately one second
-    # Add something here to collect the delays of each ping in a list so you can calculate vars after your ping
+                #         ipBytes = len(recPacket)
+                #         # Fetch the ICMP header from the IP packet
+                icmpHeader = struct.unpack_from("bbHHh", recvPacket, offset=20)
+                #         #b = char -> int Type, Code
+                #         #H = unsigned short -> int Checksum, ID
+                #         #h = short -> int Sequence
+                icmpType = icmpHeader[0]
+                icmpCode = icmpHeader[1]
+                icmpChecksum = icmpHeader[2]
+                icmpID = icmpHeader[3]
+                icmpSeq = icmpHeader[4]
+                #print("IP TTL: " + str(TTL[0]))
+                #print("IP Addr: " + IPAddr)
+                #print("ICMP Type: " + str(icmpType))
+                #print("ICMP Code: " + str(icmpCode))
+                #print("ICMP Checksum: " + str(icmpChecksum))
+                #print("ICMP ID: " + str(icmpID))
+                #print("ICMP Seq: " + str(icmpSeq))
+                #print("RTT: " + str(round(timeReceived - startedSelect, 6)))
 
-    for i in range(0, 4):  # Four pings will be sent (loop runs for i=0, 1, 2, 3)
-        delay, statistics = doOnePing(dest, timeout)  # what is stored into delay and statistics?
-        # store your bytes, rtt, and ttl here in your response pandas dataframe. An example is commented out below for vars
+                #Fill in end
+                try: #try to fetch the hostname
+                    #Fill in start
+                    hostname_ret = gethostbyaddr(IPAddr)
+                    #Fill in end
+                except herror:   #if the host does not provide a hostname
+                    #Fill in start
+                    hostname_ret = ['hostname not returnable',[],[]]
+                    #Fill in end
 
-        row = {'bytes':statistics[0], 'rtt':statistics[1], 'ttl':statistics[2]}
-        new_response = pd.DataFrame([row])
-        response = pd.concat([response, new_response], axis=0, ignore_index=True)
-        if statistics[0] == 0:
-            print(delay)
-        else:
-            print("Reply from " + dest + ": bytes=" + str(statistics[0]) + " time=" + str(statistics[1]) + "ms TTL=" + str(statistics[2]))
-        #print(statistics)
-        time.sleep(1)  # wait one second
-
-
-    packet_lost = 0
-    packet_recv = 0
-    # fill in start. UPDATE THE QUESTION MARKS
-    for index, row in response.iterrows():
-        if row['bytes'] == 0:  # access your response df to determine if you received a packet or not
-            packet_lost = packet_lost + 1
-        else:
-            packet_recv =  packet_recv + 1
-    # fill in end
-
-    #print("packet lost: " + str(packet_lost))
-    #print("packet recv: " + str(packet_recv))
-    #print(response)
-    # You should have the values of delay for each ping here structured in a pandas dataframe;
-    # fill in calculation for packet_min, packet_avg, packet_max, and stdev
-    vars = pd.DataFrame(columns=['min', 'avg', 'max', 'stddev'])
-    row = {'min':str(round(response['rtt'].min(), 2)), 'avg':str(round(response['rtt'].mean(), 2)), 'max':str(round(response['rtt'].max(), 2)), 'stddev':str(round(response['rtt'].std(), 2))}
-    new_vars = pd.DataFrame([row])
-    vars = pd.concat([vars,new_vars], axis=0, ignore_index=True)
-
-    print("\n---" + host + " ping statistics ---")
-    print("4 packets transmitted, " + str(packet_recv) + " packets received, " + str(round(((1 - (packet_recv / 4)) * 100),1)) + "% packet loss")
-    print(vars)  # make sure your vars data you are returning resembles acceptance criteria
-    return vars
-
+                if icmpType == 11:
+                    bytes = struct.calcsize("d")
+                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #Fill in start
+                    #print('Hop Count:' + str(ttl))
+                    #print('Try:' + str(tries))
+                    #print('IP: ' + IPAddr)
+                    #print('Hostname: ' + str(hostname_ret))
+                    #print('Response: ' + str(icmpType))
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code':icmpType}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    #print(df)
+                    #Fill in end
+                elif icmpType == 3:
+                    bytes = struct.calcsize("d")
+                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #Fill in start
+                    #You should update your dataframe with the required column field responses here
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': icmpType}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    #print(df)
+                    #Fill in end
+                elif icmpType == 0:
+                    bytes = struct.calcsize("d")
+                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #Fill in start
+                    #You should update your dataframe with the required column field responses here
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': icmpType}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    #print(df)
+                    return df
+                     #Fill in end
+                else:
+                    #Fill in start
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': 'error', 'Hostname': 'error', 'Response Code': 'error'}
+                    new_df = pd.DataFrame([row])
+                    df = pd.concat([df, new_df], axis=0, ignore_index=True)
+                    #Fill in end
+                break
+    return df
 
 if __name__ == '__main__':
-    ping("google.com")
+    get_route("google.co.il")
