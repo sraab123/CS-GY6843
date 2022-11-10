@@ -72,7 +72,7 @@ def get_route(hostname):
     for ttl in range(1,MAX_HOPS):
         for tries in range(TRIES):
             #print(hostname)
-            destAddr = gethostbyname(hostname)
+            #destAddr = gethostbyname(hostname)
 
             #Fill in start
             icmp = getprotobyname("icmp")
@@ -84,7 +84,7 @@ def get_route(hostname):
             try:
                 d = build_packet()
                 mySocket.sendto(d, (hostname, 0))
-                t= time.time()
+                #t= time.time()
                 startedSelect = time.time()
                 whatReady = select.select([mySocket], [], [], timeLeft)
                 howLongInSelect = (time.time() - startedSelect)
@@ -99,7 +99,7 @@ def get_route(hostname):
 
                     #Fill in end
                 recvPacket, addr = mySocket.recvfrom(1024)
-                timeReceived = time.time()
+                #timeReceived = time.time()
                 timeLeft = timeLeft - howLongInSelect
                 if timeLeft <= 0:
                     #Fill in start
@@ -118,9 +118,11 @@ def get_route(hostname):
                 #Fetch the icmp type from the IP packet
                 TTL = struct.unpack_from("B", recvPacket, offset=8)
                 IP_numeric = struct.unpack_from("L", recvPacket, offset=12)
+                bytes = struct.calcsize("L")
+                IP_numeric = struct.unpack("L", recvPacket[12:12 + bytes])[0]
                 #print(recvPacket>>8)
 
-                IP_bytes = int.to_bytes(IP_numeric[0],4,"little")
+                IP_bytes = int.to_bytes(IP_numeric,4,"little")
                 #print(len(IP_bytes))
                 IPAddr = inet_ntoa(IP_bytes)
 
@@ -131,10 +133,10 @@ def get_route(hostname):
                 #         #H = unsigned short -> int Checksum, ID
                 #         #h = short -> int Sequence
                 icmpType = icmpHeader[0]
-                icmpCode = icmpHeader[1]
-                icmpChecksum = icmpHeader[2]
-                icmpID = icmpHeader[3]
-                icmpSeq = icmpHeader[4]
+                #icmpCode = icmpHeader[1]
+                #icmpChecksum = icmpHeader[2]
+                #icmpID = icmpHeader[3]
+                #icmpSeq = icmpHeader[4]
                 #print("IP TTL: " + str(TTL[0]))
                 #print("IP Addr: " + IPAddr)
                 #print("ICMP Type: " + str(icmpType))
@@ -155,8 +157,8 @@ def get_route(hostname):
                     #Fill in end
 
                 if icmpType == 11:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #bytes = struct.calcsize("d")
+                    #timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
                     #Fill in start
                     #print('Hop Count:' + str(ttl))
                     #print('Try:' + str(tries))
@@ -169,8 +171,8 @@ def get_route(hostname):
                     #print(df)
                     #Fill in end
                 elif icmpType == 3:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #bytes = struct.calcsize("d")
+                    #timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
                     #Fill in start
                     #You should update your dataframe with the required column field responses here
                     row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': str(icmpType)}
@@ -179,8 +181,8 @@ def get_route(hostname):
                     #print(df)
                     #Fill in end
                 elif icmpType == 0:
-                    bytes = struct.calcsize("d")
-                    timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
+                    #bytes = struct.calcsize("d")
+                    #timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
                     #Fill in start
                     #You should update your dataframe with the required column field responses here
                     row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': str(icmpType)}
