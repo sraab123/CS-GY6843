@@ -163,7 +163,7 @@ def get_route(hostname):
                     #print('IP: ' + IPAddr)
                     #print('Hostname: ' + str(hostname_ret))
                     #print('Response: ' + str(icmpType))
-                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code':icmpType}
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code':str(icmpType)}
                     new_df = pd.DataFrame([row])
                     df = pd.concat([df, new_df], axis=0, ignore_index=True)
                     #print(df)
@@ -173,7 +173,7 @@ def get_route(hostname):
                     timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
                     #Fill in start
                     #You should update your dataframe with the required column field responses here
-                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': icmpType}
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': str(icmpType)}
                     new_df = pd.DataFrame([row])
                     df = pd.concat([df, new_df], axis=0, ignore_index=True)
                     #print(df)
@@ -183,7 +183,7 @@ def get_route(hostname):
                     timeSent = struct.unpack("d", recvPacket[28:28 + bytes])[0]
                     #Fill in start
                     #You should update your dataframe with the required column field responses here
-                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': icmpType}
+                    row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': IPAddr, 'Hostname': hostname_ret[0], 'Response Code': str(icmpType)}
                     new_df = pd.DataFrame([row])
                     df = pd.concat([df, new_df], axis=0, ignore_index=True)
                     #print(df)
