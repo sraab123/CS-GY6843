@@ -118,7 +118,7 @@ def get_route(hostname):
                 #Fetch the icmp type from the IP packet
                 #TTL = struct.unpack_from("B", recvPacket, offset=8)
                 #IP_numeric = struct.unpack_from("L", recvPacket, offset=12)
-                bytes = struct.calcsize("L")
+                bytes = struct.calcsize("I")
                 #IP_numeric = struct.unpack("L", recvPacket[12:12 + bytes])[0]
                 #print(recvPacket>>8)
 
