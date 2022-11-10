@@ -95,7 +95,7 @@ def get_route(hostname):
                     row = {'Hop Count': str(ttl), 'Try': str(tries + 1), 'IP': 'timeout', 'Hostname': 'timeout', 'Response Code': 'timeout'}
                     new_df = pd.DataFrame([row])
                     df = pd.concat([df, new_df], axis=0, ignore_index=True)
-                    print(df)
+                    #print(df)
 
                     #Fill in end
                 recvPacket, addr = mySocket.recvfrom(1024)
